@@ -18,7 +18,10 @@ pacman::p_load(ISLR
                ,rpart
                ,mgcv # choose between gam and mgcv
                ,wordcloud
-               ,knitr,TTR,zoo)
+               ,knitr,TTR,zoo
+               ,leaps # regsubsets
+               ,reshape
+               )
 
 ```
 
@@ -95,6 +98,29 @@ I've divided the data into training and testing data.
 ```{r}
 Train_COVID<-readRDS("Train_COVID.rds")
 Test_COVID<- readRDS( "Test_COVID.rds")
+colSums(Train_COVID==98)
+colSums(Test_COVID==98)
+unique(Train_COVID$DIABETES)
+## Recode missing data as NA #
+Train_COVID$ASTHMA  <- ifelse( Train_COVID$ASTHMA  <3, Train_COVID$ASTHMA, NA)
+Train_COVID$DIABETES<- ifelse( Train_COVID$DIABETES<3, Train_COVID$DIABETES, NA)
+Train_COVID$COPD <- ifelse( Train_COVID$COPD <3, Train_COVID$COPD, NA)
+Train_COVID$RENAL_CHRONIC      <- ifelse( Train_COVID$RENAL_CHRONIC <3,  Train_COVID$RENAL_CHRONIC, NA)
+Train_COVID$USMER <- ifelse(Train_COVID$USMER < 3, Train_COVID$USMER, NA)
+Train_COVID$CARDIOVASCULAR <- ifelse(Train_COVID$CARDIOVASCULAR < 3, Train_COVID$CARDIOVASCULAR, NA)
+Train_COVID$HIPERTENSION <- ifelse(Train_COVID$HIPERTENSION < 3, Train_COVID$HIPERTENSION, NA)
+Train_COVID$INMSUPR <- ifelse(Train_COVID$INMSUPR < 3, Train_COVID$INMSUPR, NA)
+
+
+## Factor the variables
+Train_COVID$ASTHMA <- ifelse(Train_COVID$ASTHMA < 3, Train_COVID$ASTHMA, NA)
+Train_COVID$DIABETES <- ifelse(Train_COVID$DIABETES < 3, Train_COVID$DIABETES, NA)
+Train_COVID$COPD <- ifelse(Train_COVID$COPD < 3, Train_COVID$COPD, NA)
+Train_COVID$RENAL_CHRONIC <- ifelse(Train_COVID$RENAL_CHRONIC < 3, Train_COVID$RENAL_CHRONIC, NA)
+Train_COVID$USMER <- ifelse(Train_COVID$USMER < 3, Train_COVID$USMER, NA)
+Train_COVID$CARDIOVASCULAR <- ifelse(Train_COVID$CARDIOVASCULAR < 3, Train_COVID$CARDIOVASCULAR, NA)
+Train_COVID$HIPERTENSION <- ifelse(Train_COVID$HIPERTENSION < 3, Train_COVID$HIPERTENSION, NA)
+Train_COVID$INMSUPR <- ifelse(Train_COVID$INMSUPR < 3, Train_COVID$INMSUPR, NA)
 ######
 ```
 
@@ -103,15 +129,34 @@ Try the method described in Ch7.  See if you can improve the performance.
 Your code:
 ```{r,echo=TRUE}
 # https://www.kaggle.com/datasets/meirnizri/covid19-dataset
-gam1 <- lm()
+#is.factor(Train_COVID$PNEUMONIA)
+# previous model: 
+# glm(SURVIVED_bin ~ AGE_TRUNK + SEX + ASTHMA + DIABETES +
+#                       RENAL_CHRONIC + USMER +
+#                       MEDICAL_UNIT * PATIENT_TYPE + OBESITY * CARDIOVASCULAR + 
+#                       HIPERTENSION * INMSUPR + poly(COPD, 2) + I(RENAL_CHRONIC^2),  
+#                    family=binomial(link = "logit"), 
+#                    data = Train_COVID)
+# fit_1 <- lm(SURVIVED_bin ~ SEX, Train_COVID)
+# fit_2 <- lm(SURVIVED_bin ~ poly(SEX, 2), Train_COVID)
+# fit_3 <- lm(SURVIVED_bin ~ poly(SEX, 3), Train_COVID)
+# fit_4 <- lm(SURVIVED_bin ~ poly(SEX, 4), Train_COVID)
+# fit_5 <- lm(SURVIVED_bin ~ poly(SEX, 5), Train_COVID)
+# 
+# table(Train_COVID$ASTHMA)
+# #fit <- lm(SURVIVED_bin ~ poly(AGE_TRUNK, 7) + SEX + , Train_COVID)
+# 
+# anova(fit_1, fit_2, fit_3, fit_4, fit_5)
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
-
-
+Degree of polynomial: 
+fit models with single variables and compare p-values by ANOVA. 
+AGE_TRUNK has a p-value of 2.411e-09 in degree 7 and 0.3927 from degree 7 to degree 8, therefore AGE_TRUNK is sufficient in degree 7. 
+SEX is binomial thus cannot fit as polynomial variable.
+ASTHMA has three values: 1, 2 and 98. There is no definition of 98 in the column but here I treat it as missing data. 
 ~~~
 
 ## Problem Set
@@ -125,38 +170,52 @@ data(College,package = "ISLR2")
 
 (a) Split the data into a training set and a test set. Using out-of-state tuition as the response and the other variables as the predictors.  Based on the exercises in the previous chapter, identify a satisfactory model that uses just a subset of the predictors.
 
-
-
 Your code:
 ```{r,echo=TRUE}
-#
-#
+size <- floor(dim(College)[1]*0.3)
+set.seed(1257)
+samp_idx <- sample(1:dim(College)[1], size, FALSE)
+col_test <- College[samp_idx,]
+col_train <- College[-samp_idx,]
+
+col.regfit_full <- regsubsets(Outstate ~., nvmax = 12, col_train)
+reg.summary <- summary(col.regfit_full)
+reg.summary
+reg.summary$rsq
+
+col.fit_1 <- lm(Outstate ~ Private+Room.Board+perc.alumni+Expend+Grad.Rate+PhD,col_train)
+summary(col.fit_1)
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
-
+R-square statistic suggests  5 or 6 variables thus I choose subset of Private, Room.Board, perc.alumni, Expend, Grad.Rate, PhD.
 
 ~~~
-
 
 (b) Fit a GAM on the training data, using out-of-state tuition as the response and the features selected in the previous step as the predictors. Plot the results, and explain your findings.
 
 
-
 Your code:
-```{r,echo=TRUE}
-#
-#
+```{r,echo=TRUE, warning  = FALSE}
+# table(cut(col_test$Room.Board, 4))
+# table(cut(col_test$Grad.Rate, 5))
+# table(cut(col_test$PhD, 6))
+# attr(bs(col_test$PhD, df = 7), "knots")
+# table(cut(col_test$perc.alumni, 6))
+# table(cut(col_test$Expend, 4))
+# attr(bs(col_test$Expend, df = 6), "knots")
+col.gam <- lm(Outstate ~ Private + ns(Room.Board, 4) + ns(perc.alumni, 6) +
+                ns(Expend, knots = c(6742, 8420, 10912)) + 
+                ns(Grad.Rate, 5) + ns(PhD, knots = c(60, 72, 80, 87.6)), col_test)
+plot(col.gam, se = TRUE, col = "blue")
+plot.Gam(col.gam, se = TRUE, col = "red")
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
-
 
 ~~~
 
@@ -166,8 +225,7 @@ Please write your answer in full sentences.
 
 Your code:
 ```{r,echo=TRUE}
-#
-#
+summary(col.gam)
 ```
 
 Your answer:
@@ -182,16 +240,10 @@ Please write your answer in full sentences.
 
 
 
-Your code:
-```{r,echo=TRUE}
-#
-#
-```
-
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
+Room.Board, perc.alumni, Expend
 
 
 ~~~
@@ -204,8 +256,30 @@ Fit some of the non-linear models investigated in chapter 7 to the `Auto` data s
 
 Your code:
 ```{r,echo=TRUE}
-#
-#
+auto <- read.csv("Auto.csv")
+auto.regfit_full <- regsubsets(mpg ~ cylinders+displacement+
+                                 horsepower+weight+
+                                 acceleration+year +origin , auto)
+reg.summary <- summary(auto.regfit_full)
+reg.summary
+reg.summary$rsq
+# The part runs well but cannot knit
+# mames <- melt(auto[,c("cylinders","displacement", "horsepower",
+#                           "weight" , "acceleration", "name", "year", "origin", "mpg")],
+#               id.vars = "mpg")
+# ggplot(mames) + geom_point() + 
+#   aes(x = value, y = mpg) +
+#   scale_x_discrete(breaks = pretty_breaks(n = 5)) +
+#   facet_wrap(variable~.,scales = "free")+ 
+#   theme_classic()
+
+#table(cut(col_test$Expend, 4))
+attr(bs(auto$horsepower, df = 5), "knots")
+
+auto.gam <- lm(mpg~ ns(cylinders, 4) + weight + ns(displacement, knots = c(119, 232)) + 
+                 ns(horsepower, knots = c(84, 110)) + year + acceleration, auto)
+plot.Gam(auto.gam, se = TRUE, col = "red")
+summary(auto.gam)
 ```
 
 Your answer:
