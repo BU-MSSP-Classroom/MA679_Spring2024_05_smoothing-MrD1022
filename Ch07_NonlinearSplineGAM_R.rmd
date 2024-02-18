@@ -102,8 +102,8 @@ Try the method described in Ch7.  See if you can improve the performance.
 
 Your code:
 ```{r,echo=TRUE}
-#
-#
+# https://www.kaggle.com/datasets/meirnizri/covid19-dataset
+gam1 <- lm()
 ```
 
 Your answer:
